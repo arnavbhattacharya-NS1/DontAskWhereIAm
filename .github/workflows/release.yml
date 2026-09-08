@@ -1,122 +1,46 @@
-name: Release
+name: Build <App name>
 
-# Fires when:
-#   • a v* tag is pushed from the CLI  (git push origin v1.0.0)
-#   • a Release is published via the GitHub UI
-#   • manually triggered from the Actions tab (for testing)
 on:
-  push:
-    tags:
-      - 'v*'
   release:
-    types: [published]
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag to build (e.g. v1.0.0)'
-        required: true
-        default: 'v1.0.0'
-
-# NOTE: macOS-only build — this app uses a CoreWLAN native addon (wifi.node)
-# that only compiles and runs on macOS. Windows/Linux builds are intentionally
-# excluded because Wi-Fi SSID detection will not work on those platforms.
+    types:
+      - published
 
 jobs:
-  build-mac:
-    name: Build macOS DMG
-    runs-on: macos-latest
 
-    # Allow the built-in GITHUB_TOKEN to create/update releases
-    permissions:
-      contents: write
-
-    # Suppress the "Node 20 is deprecated" hard-stop while action authors
-    # migrate their bundled runtimes to Node 24.
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
-
-    defaults:
-      run:
-        working-directory: DontAskWhereIAm
+  build:
+    name: Build <App name>
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
 
     steps:
-      # ── Checkout ─────────────────────────────────────────────────────────────
-      - name: Checkout
-        uses: actions/checkout@v4
 
-      # ── Node 22 via nvm (pre-installed on macos-latest) ──────────────────────
-      - name: Set up Node.js 22
-        run: |
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
-          nvm install 22
-          nvm use 22
-          node --version
-          npm --version
-          echo "$(nvm which 22 | xargs dirname)" >> "$GITHUB_PATH"
+      - uses: actions/checkout@v2
 
-      # ── Install deps ──────────────────────────────────────────────────────────
-      - name: Install dependencies
-        run: npm ci
-
-      # ── Rebuild native addon (wifi.node) for the bundled Electron ABI ────────
-      - name: Rebuild native addon
-        run: npm run rebuild
-
-      # ── Build TypeScript + renderer ───────────────────────────────────────────
-      - name: Build
-        run: npm run build
-
-      # ── Package DMG (unsigned) ────────────────────────────────────────────────
-      - name: Package DMG
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npm run dist:mac
-
-      # ── Resolve the tag name (works for all three trigger types) ──────────────
-      - name: Resolve tag name
-        id: ref
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "name=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          fi
-
-      # ── Upload DMG as a workflow artifact ─────────────────────────────────────
-      - name: Store DMG artifact
-        uses: actions/upload-artifact@v4
+      - name: Setup NodeJs
+        uses: actions/setup-node@v1
         with:
-          name: DontAskWhereIAm-${{ steps.ref.outputs.name }}-mac
-          path: DontAskWhereIAm/release/*.dmg
-          if-no-files-found: error
+          node-version: '24.x'
 
-      # ── Create/update the GitHub Release and attach the DMG ───────────────────
-      # Uses the gh CLI (pre-installed on all GitHub-hosted runners, no Node dep)
-      - name: Attach DMG to GitHub Release
+      - name: Install dependencies
+        run: yarn
+
+      - name: Build
+        run: yarn export
+
+      - name: Upload builds to release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          files: out/*.*
+          draft: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.ref.outputs.name }}
-        run: |
-          DMG=$(ls release/*.dmg | head -1)
-          PRERELEASE=""
-          [[ "$TAG" == *"-"* ]] && PRERELEASE="--prerelease"
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
 
-          gh release create "$TAG" \
-            --repo "${{ github.repository }}" \
-            --title "DontAskWhereIAm $TAG" \
-            --notes "## DontAskWhereIAm $TAG
-
-          ### Install
-          1. Download the \`.dmg\` below and open it.
-          2. Drag **DontAskWhereIAm** to your Applications folder.
-          3. On first launch go to **System Settings → Privacy & Security → Location Services** and enable it for DontAskWhereIAm.
-          4. If macOS blocks the app (unsigned build), run:
-             \`\`\`bash
-             xattr -cr /Applications/DontAskWhereIAm.app
-             \`\`\`" \
-            $PRERELEASE \
-            "$DMG" 2>/dev/null || \
-          gh release upload "$TAG" "$DMG" \
-            --repo "${{ github.repository }}" \
-            --clobber
+      - name: Upload Nightly Build
+        uses: actions/upload-artifact@v2
+        if: success()
+        with:
+          name: <App name>-nightly
+          path: out/**/*!(.zip)
