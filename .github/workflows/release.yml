@@ -26,23 +26,34 @@ jobs:
     name: Build macOS DMG
     runs-on: macos-latest
 
+    # Allow the built-in GITHUB_TOKEN to create/update releases
+    permissions:
+      contents: write
+
     defaults:
       run:
         working-directory: DontAskWhereIAm
 
     steps:
-      # ── Checkout ─────────────────────────────────────────────────────────────
+      # ── Checkout (pure shell — no Node action) ───────────────────────────────
       - name: Checkout
-        uses: actions/checkout@v4.2.2
+        run: |
+          git clone --depth 1 --branch "${GITHUB_REF_NAME:-master}" \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
+            "$GITHUB_WORKSPACE"
+        working-directory: /tmp
 
-      # ── Node (22 LTS) ─────────────────────────────────────────────────────────
-      - name: Set up Node.js
-        uses: actions/setup-node@v4.4.0
-        with:
-          node-version: '24'
-          cache: 'npm'
-          # path is relative to repo root, not working-directory
-          cache-dependency-path: 'DontAskWhereIAm/package-lock.json'
+      # ── Node 22 via nvm (pre-installed on macos-latest) ──────────────────────
+      - name: Set up Node.js 22
+        run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+          nvm install 22
+          nvm use 22
+          node --version
+          npm --version
+          # Make this Node the default for subsequent steps
+          echo "$(nvm which 22 | xargs dirname)" >> "$GITHUB_PATH"
 
       # ── Install deps ──────────────────────────────────────────────────────────
       - name: Install dependencies
@@ -56,14 +67,14 @@ jobs:
       - name: Build
         run: npm run build
 
-      # ── Package DMG (unsigned — no Apple Developer cert required) ────────────
+      # ── Package DMG (unsigned) ────────────────────────────────────────────────
       - name: Package DMG
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run dist:mac
 
-      # ── Derive ref name for workflow_dispatch (tag input) or tag/release push ─
-      - name: Resolve ref name
+      # ── Resolve the tag name (works for all three trigger types) ──────────────
+      - name: Resolve tag name
         id: ref
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -74,31 +85,46 @@ jobs:
 
       # ── Upload DMG as a workflow artifact ─────────────────────────────────────
       - name: Upload artifact
+        run: |
+          DMG=$(ls release/*.dmg | head -1)
+          echo "dmg_path=$DMG" >> "$GITHUB_OUTPUT"
+          echo "dmg_name=$(basename $DMG)" >> "$GITHUB_OUTPUT"
+        id: dmg
+
+      - name: Store DMG artifact
         uses: actions/upload-artifact@v4.6.2
         with:
           name: DontAskWhereIAm-${{ steps.ref.outputs.name }}-mac
           path: DontAskWhereIAm/release/*.dmg
           if-no-files-found: error
 
-      # ── Attach DMG to the GitHub Release ──────────────────────────────────────
-      - name: Attach DMG to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.ref.outputs.name }}
-          name: DontAskWhereIAm ${{ steps.ref.outputs.name }}
-          body: |
-            ## DontAskWhereIAm ${{ steps.ref.outputs.name }}
-
-            ### Install
-            1. Download the `.dmg` below and open it.
-            2. Drag **DontAskWhereIAm** to your Applications folder.
-            3. On first launch go to **System Settings → Privacy & Security → Location Services** and enable it for DontAskWhereIAm.
-            4. If macOS blocks the app (unsigned build), run:
-               ```bash
-               xattr -cr /Applications/DontAskWhereIAm.app
-               ```
-          draft: false
-          prerelease: ${{ contains(steps.ref.outputs.name, '-') }}
-          files: DontAskWhereIAm/release/*.dmg
+      # ── Create/update the GitHub Release and attach the DMG ───────────────────
+      # Uses the gh CLI (pre-installed on all GitHub-hosted runners, no Node dep)
+      - name: Attach DMG to GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.ref.outputs.name }}
+        run: |
+          DMG=$(ls release/*.dmg | head -1)
+          PRERELEASE=""
+          [[ "$TAG" == *"-"* ]] && PRERELEASE="--prerelease"
+
+          # Create release if it doesn't exist yet; update if it does
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --title "DontAskWhereIAm $TAG" \
+            --notes "## DontAskWhereIAm $TAG
+
+          ### Install
+          1. Download the \`.dmg\` below and open it.
+          2. Drag **DontAskWhereIAm** to your Applications folder.
+          3. On first launch go to **System Settings → Privacy & Security → Location Services** and enable it for DontAskWhereIAm.
+          4. If macOS blocks the app (unsigned build), run:
+             \`\`\`bash
+             xattr -cr /Applications/DontAskWhereIAm.app
+             \`\`\`" \
+            $PRERELEASE \
+            "$DMG" 2>/dev/null || \
+          gh release upload "$TAG" "$DMG" \
+            --repo "${{ github.repository }}" \
+            --clobber
