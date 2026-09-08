@@ -26,9 +26,6 @@ jobs:
   build-mac:
     name: macOS DMG
     runs-on: macos-latest
-    defaults:
-      run:
-        working-directory: DontAskWhereIAm
 
     steps:
       - uses: actions/checkout@v7
@@ -42,11 +39,8 @@ jobs:
 
       - name: Build native Wi-Fi addon (CoreWLAN)
         run: |
-          # Determine the Electron version and ABI from the installed package
           ELECTRON_VERSION=$(node -p "require('./node_modules/electron/package.json').version")
           echo "Electron version: $ELECTRON_VERSION"
-
-          # Download Electron headers and build wifi.node with node-gyp
           npx node-gyp rebuild \
             --target=$ELECTRON_VERSION \
             --arch=arm64 \
@@ -77,17 +71,12 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # --do-not-rebuild: wifi.node is already built above; keytar is handled
-        # by electron-builder's own install-app-deps during packaging
         run: npx electron-builder --mac dmg --publish always
 
   # ── Windows NSIS installer ─────────────────────────────────────────────────
   build-win:
     name: Windows installer
     runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: DontAskWhereIAm
 
     steps:
       - uses: actions/checkout@v7
@@ -97,7 +86,6 @@ jobs:
           node-version: 24
 
       - name: Install dependencies
-        # --ignore-scripts skips postinstall (electron-rebuild) — no native addon on Windows
         run: npm ci --ignore-scripts
 
       - name: Build
@@ -112,9 +100,6 @@ jobs:
   build-linux:
     name: Linux AppImage
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: DontAskWhereIAm
 
     steps:
       - uses: actions/checkout@v7
@@ -124,11 +109,9 @@ jobs:
           node-version: 24
 
       - name: Install system dependencies for electron-builder
-        working-directory: '.'
         run: sudo apt-get install -y rpm
 
       - name: Install dependencies
-        # --ignore-scripts skips postinstall (electron-rebuild) — no native addon on Linux
         run: npm ci --ignore-scripts
 
       - name: Build
