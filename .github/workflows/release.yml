@@ -53,19 +53,38 @@ jobs:
           cache-dependency-path: 'DontAskWhereIAm/package-lock.json'
 
       - name: Install dependencies
+        # postinstall.js only sets up the Electron binary — it does NOT build TS
         run: npm ci
 
       - name: Rebuild native Wi-Fi addon (CoreWLAN)
         run: npm run rebuild
 
-      - name: Build
+      - name: Verify wifi.node was built
+        run: |
+          if [ ! -f native/wifi/build/Release/wifi.node ]; then
+            echo "❌ wifi.node not found — rebuild failed"
+            exit 1
+          fi
+          echo "✅ wifi.node found: $(ls -lh native/wifi/build/Release/wifi.node)"
+
+      - name: Build TypeScript + renderer
         run: npm run build
+
+      - name: Verify dist was produced
+        run: |
+          if [ ! -f dist/main/main.js ]; then
+            echo "❌ dist/main/main.js not found — build failed"
+            exit 1
+          fi
+          echo "✅ dist/main/main.js found"
 
       - name: Package DMG
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --mac dmg --publish always
+        # --do-not-rebuild: we already rebuilt native deps above; prevents
+        # electron-builder from running its own rebuild and overwriting wifi.node
+        run: npx electron-builder --mac dmg --publish always --do-not-rebuild
 
   # ── Windows NSIS installer ─────────────────────────────────────────────────
   build-win:

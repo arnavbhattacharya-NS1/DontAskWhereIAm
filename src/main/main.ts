@@ -192,8 +192,11 @@ function handleEngineEvent(event: EngineEvent) {
 
     case 'no-change': {
       log.info(`No change: ${event.reason}`);
+      // Always sync tray colour to the current status — covers the common
+      // startup case where the engine reads "Already WFH" and fires no-change
+      // before a status-updated event has ever fired.
       const cur = engine?.getState().currentStatus ?? null;
-      if (trayState === 'grey' && cur) setTrayState(statusToTrayState(cur), cur);
+      if (cur) setTrayState(statusToTrayState(cur), cur);
       break;
     }
     case 'weekend':

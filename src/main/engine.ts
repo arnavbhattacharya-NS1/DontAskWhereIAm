@@ -126,8 +126,9 @@ export class StatusEngine {
 
         if (result.currentStatus === 'Office') {
           getLogger().info('IBM Wi-Fi connected, status already Office — no change needed');
-          this.onEvent({ type: 'no-change', reason: 'Already Office' });
+          this.state.currentStatus = 'Office';
           this.state.statusLockedToday = true;
+          this.onEvent({ type: 'no-change', reason: 'Already Office' });
           return;
         }
 
@@ -152,6 +153,10 @@ export class StatusEngine {
     }
 
     const { boardId, itemId, columnId, currentStatus } = result;
+
+    // Always sync in-memory state from the board's current value so that
+    // no-change events carry the correct status for tray colour updates.
+    if (currentStatus) this.state.currentStatus = currentStatus;
 
     // Step 5 — Manual status: leave alone
     if (isManualStatus(currentStatus)) {
