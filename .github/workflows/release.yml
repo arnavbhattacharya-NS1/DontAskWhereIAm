@@ -30,18 +30,19 @@ jobs:
     permissions:
       contents: write
 
+    # Suppress the "Node 20 is deprecated" hard-stop while action authors
+    # migrate their bundled runtimes to Node 24.
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
+
     defaults:
       run:
         working-directory: DontAskWhereIAm
 
     steps:
-      # ── Checkout (pure shell — no Node action) ───────────────────────────────
+      # ── Checkout ─────────────────────────────────────────────────────────────
       - name: Checkout
-        run: |
-          git clone --depth 1 --branch "${GITHUB_REF_NAME:-master}" \
-            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
-            "$GITHUB_WORKSPACE"
-        working-directory: /tmp
+        uses: actions/checkout@v4
 
       # ── Node 22 via nvm (pre-installed on macos-latest) ──────────────────────
       - name: Set up Node.js 22
@@ -52,7 +53,6 @@ jobs:
           nvm use 22
           node --version
           npm --version
-          # Make this Node the default for subsequent steps
           echo "$(nvm which 22 | xargs dirname)" >> "$GITHUB_PATH"
 
       # ── Install deps ──────────────────────────────────────────────────────────
@@ -84,15 +84,8 @@ jobs:
           fi
 
       # ── Upload DMG as a workflow artifact ─────────────────────────────────────
-      - name: Upload artifact
-        run: |
-          DMG=$(ls release/*.dmg | head -1)
-          echo "dmg_path=$DMG" >> "$GITHUB_OUTPUT"
-          echo "dmg_name=$(basename $DMG)" >> "$GITHUB_OUTPUT"
-        id: dmg
-
       - name: Store DMG artifact
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v4
         with:
           name: DontAskWhereIAm-${{ steps.ref.outputs.name }}-mac
           path: DontAskWhereIAm/release/*.dmg
@@ -109,7 +102,6 @@ jobs:
           PRERELEASE=""
           [[ "$TAG" == *"-"* ]] && PRERELEASE="--prerelease"
 
-          # Create release if it doesn't exist yet; update if it does
           gh release create "$TAG" \
             --repo "${{ github.repository }}" \
             --title "DontAskWhereIAm $TAG" \
