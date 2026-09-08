@@ -1,0 +1,14 @@
+{
+  "ibmWifi": {
+    "primarySSID": "IBM",
+    "guestSSID": "IBMGuest"
+  },
+  "pollingIntervalMinutes": 5,
+  "bankHolidayCountryCode": "IE",
+  "logRetentionDays": 7,
+  "monday": {
+    "clientId": "ba0815dd6415eb3fdad09a47ee669643",
+    "clientSecret": "9b3e7055fcb59719455d0275ab24282b",
+    "redirectUri": "http://localhost:3457/callback"
+  }
+}

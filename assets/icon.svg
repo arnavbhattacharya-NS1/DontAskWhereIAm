@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="70%">
+      <stop offset="0%" stop-color="#b91c1c"/>
+      <stop offset="100%" stop-color="#5a0707"/>
+    </radialGradient>
+    <radialGradient id="bodyGrad" cx="40%" cy="32%" r="62%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e8e8e8"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect width="1024" height="1024" rx="220" ry="220" fill="url(#bg)"/>
+
+  <!-- Ghost: centered, comfortably inside canvas -->
+  <ellipse cx="490" cy="410" rx="190" ry="198" fill="url(#bodyGrad)"/>
+  <rect x="300" y="408" width="380" height="230" fill="url(#bodyGrad)"/>
+  <!-- Wavy skirt: 4 bumps, 300–680 range -->
+  <path d="
+    M300 638
+    Q347 714 394 638
+    Q441 562 490 638
+    Q539 714 586 638
+    Q633 562 680 638
+    L680 408 L300 408 Z
+  " fill="url(#bodyGrad)"/>
+
+  <!-- Eyes -->
+  <ellipse cx="432" cy="398" rx="38" ry="46" fill="#2d1a1a"/>
+  <ellipse cx="420" cy="383" rx="11" ry="13" fill="#fff" opacity="0.28"/>
+  <ellipse cx="548" cy="398" rx="38" ry="46" fill="#2d1a1a"/>
+  <ellipse cx="536" cy="383" rx="11" ry="13" fill="#fff" opacity="0.28"/>
+
+  <!-- Shush finger (horizontal pill) -->
+  <rect x="460" y="492" width="100" height="30" rx="15" fill="#c0392b" opacity="0.68"/>
+  <ellipse cx="490" cy="518" rx="48" ry="13" fill="#b91c1c" opacity="0.28"/>
+
+  <!-- Drop shadow -->
+  <ellipse cx="490" cy="790" rx="175" ry="18" fill="#000" opacity="0.18"/>
+
+  <!-- Wi-Fi arcs — top right, fully inside rounded rect -->
+  <!-- Anchor dot at (720, 340); arcs sweep to upper-right -->
+  <circle cx="720" cy="340" r="18" fill="#fca5a5" opacity="0.95"/>
+  <path d="M720 340 Q720 250 810 250"
+        stroke="#fecaca" stroke-width="22" stroke-linecap="round" fill="none" opacity="0.9"/>
+  <path d="M720 340 Q720 190 870 190"
+        stroke="#fca5a5" stroke-width="24" stroke-linecap="round" fill="none" opacity="0.85"/>
+  <path d="M720 340 Q720 130 930 130"
+        stroke="#f87171" stroke-width="26" stroke-linecap="round" fill="none" opacity="0.8"/>
+</svg>

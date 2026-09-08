@@ -1,0 +1,90 @@
+name: Release
+
+# Triggers on any tag of the form v1.2.3 (or v1.2.3-beta.1, etc.)
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-mac:
+    name: Build macOS DMG
+    runs-on: macos-latest
+
+    defaults:
+      run:
+        working-directory: DontAskWhereIAm
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Node ────────────────────────────────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: DontAskWhereIAm/package-lock.json
+
+      # ── Install deps ─────────────────────────────────────────────────────────
+      # postinstall runs electron-rebuild automatically via postinstall.js,
+      # but we run rebuild explicitly afterwards to be safe.
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Rebuild native addon (wifi.node) for the bundled Electron ABI ───────
+      - name: Rebuild native addon
+        run: npm run rebuild
+
+      # ── Build TypeScript + renderer ─────────────────────────────────────────
+      - name: Build
+        run: npm run build
+
+      # ── Package DMG (unsigned — no Apple Developer cert required) ───────────
+      - name: Package DMG
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # Stamp the version from the git tag into the build
+          npm_config_build_from_source: 'true'
+        run: npm run dist:mac
+
+      # ── Extract version from tag (strips leading 'v') ────────────────────────
+      - name: Get version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      # ── Upload DMG as a build artifact (also attached to the release below) ──
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DontAskWhereIAm-${{ steps.version.outputs.version }}-mac
+          path: DontAskWhereIAm/release/*.dmg
+          if-no-files-found: error
+
+      # ── Create GitHub Release and attach the DMG ─────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: DontAskWhereIAm ${{ github.ref_name }}
+          body: |
+            ## DontAskWhereIAm ${{ github.ref_name }}
+
+            ### Install
+            1. Download the `.dmg` below and open it.
+            2. Drag **DontAskWhereIAm** to your Applications folder.
+            3. On first launch, go to **System Settings → Privacy & Security → Location Services** and enable it for DontAskWhereIAm so it can read your Wi-Fi network name.
+            4. If macOS blocks the app (unsigned build), run:
+               ```bash
+               xattr -cr /Applications/DontAskWhereIAm.app
+               ```
+
+            ### What's included
+            - macOS arm64 + x64 universal DMG
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: DontAskWhereIAm/release/*.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

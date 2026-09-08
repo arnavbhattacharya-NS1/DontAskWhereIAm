@@ -1,0 +1,90 @@
+{
+  "name": "dontaskwhereiam",
+  "version": "1.0.0",
+  "description": "Automatically updates your Monday.com attendance board based on Wi-Fi, calendar, and public holidays.",
+  "main": "dist/main/main.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "node postinstall.js",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:renderer": "webpack --config webpack.config.js",
+    "build": "npm run build:main && npm run build:renderer",
+    "start": "node scripts/launch-dev.js",
+    "rebuild": "electron-rebuild",
+    "dist": "npm run build && electron-builder",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:linux": "npm run build && electron-builder --linux"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "keytar": "^7.9.0",
+    "node-wifi": "^2.0.16",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "winston": "^3.11.0",
+    "winston-daily-rotate-file": "^4.7.1"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.4.0",
+    "@types/node": "^20.0.0",
+    "@types/node-wifi": "^2.0.2",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "autoprefixer": "^10.4.0",
+    "concurrently": "^8.2.0",
+    "cross-env": "^7.0.3",
+    "css-loader": "^6.8.0",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.9.0",
+    "html-webpack-plugin": "^5.5.0",
+    "postcss": "^8.4.0",
+    "postcss-loader": "^7.3.0",
+    "style-loader": "^3.3.0",
+    "tailwindcss": "^3.4.0",
+    "ts-loader": "^9.5.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.3.0",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.0"
+  },
+  "build": {
+    "appId": "com.dontaskwhereiam.app",
+    "productName": "DontAskWhereIAm",
+    "copyright": "Copyright © 2025",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "assets/**/*",
+      "native/**/*",
+      "config.json"
+    ],
+    "extraResources": [
+      { "from": "assets/bin/get-ssid", "to": "assets/bin/get-ssid" },
+      { "from": "native/wifi/build/Release/wifi.node", "to": "native/wifi/build/Release/wifi.node" }
+    ],
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns",
+      "extendInfo": {
+        "NSLocationWhenInUseUsageDescription": "DontAskWhereIAm needs location access to detect your current Wi-Fi network name.",
+        "NSLocationUsageDescription": "DontAskWhereIAm needs location access to detect your current Wi-Fi network name."
+      }
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    }
+  }
+}
