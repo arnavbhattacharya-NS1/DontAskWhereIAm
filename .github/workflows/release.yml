@@ -38,7 +38,7 @@ jobs:
           node-version: 'lts/*'
           cache: 'npm'
           # cache-dependency-path is always relative to repo root, not working-directory
-          cache-dependency-path: DontAskWhereIAm/package-lock.json
+          cache-dependency-path: ${{ github.workspace }}/DontAskWhereIAm/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -88,7 +88,7 @@ jobs:
         with:
           node-version: 'lts/*'
           cache: 'npm'
-          cache-dependency-path: DontAskWhereIAm/package-lock.json
+          cache-dependency-path: ${{ github.workspace }}/DontAskWhereIAm/package-lock.json
 
       - name: Install dependencies
         # --ignore-scripts skips postinstall (electron-rebuild) — no native addon on Windows
@@ -117,7 +117,7 @@ jobs:
         with:
           node-version: 'lts/*'
           cache: 'npm'
-          cache-dependency-path: DontAskWhereIAm/package-lock.json
+          cache-dependency-path: ${{ github.workspace }}/DontAskWhereIAm/package-lock.json
 
       - name: Install system dependencies for electron-builder
         working-directory: '.'
