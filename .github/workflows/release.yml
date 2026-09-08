@@ -1,10 +1,14 @@
 name: Release
 
-# Triggers on any tag of the form v1.2.3 (or v1.2.3-beta.1, etc.)
+# Fires when:
+#   • a v* tag is pushed from the CLI  (git push origin v1.0.0)
+#   • a Release is published via the GitHub UI
 on:
   push:
     tags:
       - 'v*'
+  release:
+    types: [published]
 
 jobs:
   build-mac:
