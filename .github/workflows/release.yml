@@ -17,6 +17,10 @@ on:
         required: true
         default: 'v1.0.0'
 
+# NOTE: macOS-only build — this app uses a CoreWLAN native addon (wifi.node)
+# that only compiles and runs on macOS. Windows/Linux builds are intentionally
+# excluded because Wi-Fi SSID detection will not work on those platforms.
+
 jobs:
   build-mac:
     name: Build macOS DMG
@@ -27,75 +31,74 @@ jobs:
         working-directory: DontAskWhereIAm
 
     steps:
-      # ── Checkout ────────────────────────────────────────────────────────────
+      # ── Checkout ─────────────────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── Node ────────────────────────────────────────────────────────────────
+      # ── Node (22 LTS — avoids Node 20 deprecation warning) ───────────────────
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
-          cache-dependency-path: DontAskWhereIAm/package-lock.json
+          # path is relative to repo root, not working-directory
+          cache-dependency-path: 'DontAskWhereIAm/package-lock.json'
 
-      # ── Install deps ─────────────────────────────────────────────────────────
-      # postinstall runs electron-rebuild automatically via postinstall.js,
-      # but we run rebuild explicitly afterwards to be safe.
+      # ── Install deps ──────────────────────────────────────────────────────────
       - name: Install dependencies
         run: npm ci
 
-      # ── Rebuild native addon (wifi.node) for the bundled Electron ABI ───────
+      # ── Rebuild native addon (wifi.node) for the bundled Electron ABI ────────
       - name: Rebuild native addon
         run: npm run rebuild
 
-      # ── Build TypeScript + renderer ─────────────────────────────────────────
+      # ── Build TypeScript + renderer ───────────────────────────────────────────
       - name: Build
         run: npm run build
 
-      # ── Package DMG (unsigned — no Apple Developer cert required) ───────────
+      # ── Package DMG (unsigned — no Apple Developer cert required) ────────────
       - name: Package DMG
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-          # Stamp the version from the git tag into the build
-          npm_config_build_from_source: 'true'
         run: npm run dist:mac
 
-      # ── Extract version from tag (strips leading 'v') ────────────────────────
-      - name: Get version
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      # ── Derive ref name for workflow_dispatch (tag input) or tag/release push ─
+      - name: Resolve ref name
+        id: ref
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
 
-      # ── Upload DMG as a build artifact (also attached to the release below) ──
+      # ── Upload DMG as a workflow artifact ─────────────────────────────────────
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DontAskWhereIAm-${{ steps.version.outputs.version }}-mac
+          name: DontAskWhereIAm-${{ steps.ref.outputs.name }}-mac
           path: DontAskWhereIAm/release/*.dmg
           if-no-files-found: error
 
-      # ── Create GitHub Release and attach the DMG ─────────────────────────────
-      - name: Create GitHub Release
+      # ── Attach DMG to the GitHub Release ──────────────────────────────────────
+      - name: Attach DMG to release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: DontAskWhereIAm ${{ github.ref_name }}
+          tag_name: ${{ steps.ref.outputs.name }}
+          name: DontAskWhereIAm ${{ steps.ref.outputs.name }}
           body: |
-            ## DontAskWhereIAm ${{ github.ref_name }}
+            ## DontAskWhereIAm ${{ steps.ref.outputs.name }}
 
             ### Install
             1. Download the `.dmg` below and open it.
             2. Drag **DontAskWhereIAm** to your Applications folder.
-            3. On first launch, go to **System Settings → Privacy & Security → Location Services** and enable it for DontAskWhereIAm so it can read your Wi-Fi network name.
+            3. On first launch go to **System Settings → Privacy & Security → Location Services** and enable it for DontAskWhereIAm.
             4. If macOS blocks the app (unsigned build), run:
                ```bash
                xattr -cr /Applications/DontAskWhereIAm.app
                ```
-
-            ### What's included
-            - macOS arm64 + x64 universal DMG
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(steps.ref.outputs.name, '-') }}
           files: DontAskWhereIAm/release/*.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
