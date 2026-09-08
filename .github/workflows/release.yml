@@ -1,46 +1,37 @@
-name: CI
+name: Build macOS DMG
 
 on:
-  release:
-    types:
-      - published
+  push:
+    branches:
+      - master
+
+# Lets the built-in GITHUB_TOKEN create/update releases
+permissions:
+  contents: write
+
+# Prevents overlapping runs from racing on the same release
+concurrency:
+  group: build-macos-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-
   build:
-    name: Build <App name>
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-
+    runs-on: macos-latest
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
 
-      - uses: actions/checkout@v2
-
-      - name: Setup NodeJs
-        uses: actions/setup-node@v1
+      - name: Set up Node.js (latest LTS)
+        uses: actions/setup-node@v6
         with:
-          node-version: '24.x'
+          node-version: 'lts/*'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: yarn
+        run: npm ci
 
-      - name: Build
-        run: yarn export
-
-      - name: Upload builds to release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.ref }}
-          files: out/*.*
-          draft: true
+      - name: Build and publish DMG
+        run: npx electron-builder --mac dmg --publish always
         env:
-          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-
-      - name: Upload Nightly Build
-        uses: actions/upload-artifact@v2
-        if: success()
-        with:
-          name: <App name>-nightly
-          path: out/**/*!(.zip)
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
