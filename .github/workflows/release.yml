@@ -36,17 +36,15 @@ jobs:
   build-mac:
     name: macOS DMG
     runs-on: macos-latest
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
-
+    
     defaults:
       run:
         working-directory: DontAskWhereIAm
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 'lts/*'
           cache: 'npm'
@@ -90,17 +88,15 @@ jobs:
   build-win:
     name: Windows installer
     runs-on: windows-latest
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
-
+    
     defaults:
       run:
         working-directory: DontAskWhereIAm
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 'lts/*'
           cache: 'npm'
@@ -122,17 +118,15 @@ jobs:
   build-linux:
     name: Linux AppImage
     runs-on: ubuntu-latest
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
-
+    
     defaults:
       run:
         working-directory: DontAskWhereIAm
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 'lts/*'
           cache: 'npm'
