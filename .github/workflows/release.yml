@@ -3,12 +3,19 @@ name: Release
 # Fires when:
 #   • a v* tag is pushed from the CLI  (git push origin v1.0.0)
 #   • a Release is published via the GitHub UI
+#   • manually triggered from the Actions tab (for testing)
 on:
   push:
     tags:
       - 'v*'
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
 
 jobs:
   build-mac:
