@@ -30,7 +30,18 @@ let engine: StatusEngine | null = null;
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 let midnightTimeout: ReturnType<typeof setTimeout> | null = null;
 
-type TrayState = 'grey' | 'green' | 'orange' | 'red';
+type TrayState = 'grey' | 'green' | 'orange' | 'red' | 'darkgreen' | 'darkpink' | 'lightgreen';
+
+/** Map a written Monday.com status to a tray dot colour */
+function statusToTrayState(status: MondayStatus): TrayState {
+  switch (status) {
+    case 'Office':       return 'darkgreen';
+    case 'WFH':          return 'orange';
+    case 'Vacation':     return 'darkpink';
+    case 'Bank holiday': return 'lightgreen';
+    default:             return 'orange'; // WFH: Sickness / LOA / Travel etc.
+  }
+}
 let trayState: TrayState = 'grey';
 let todayStatus: MondayStatus | null = null;
 
@@ -170,7 +181,7 @@ function handleEngineEvent(event: EngineEvent) {
   switch (event.type) {
     case 'status-updated':
       log.info(`Status updated: ${event.status}`);
-      setTrayState('green', event.status);
+      setTrayState(statusToTrayState(event.status), event.status);
       if (getSettings().showNotifications) {
         new Notification({
           title: 'DontAskWhereIAm',
@@ -179,11 +190,12 @@ function handleEngineEvent(event: EngineEvent) {
       }
       break;
 
-    case 'no-change':
+    case 'no-change': {
       log.info(`No change: ${event.reason}`);
-      if (trayState === 'grey') setTrayState('green', engine?.getState().currentStatus ?? undefined);
+      const cur = engine?.getState().currentStatus ?? null;
+      if (trayState === 'grey' && cur) setTrayState(statusToTrayState(cur), cur);
       break;
-
+    }
     case 'weekend':
       setTrayState('grey');
       tray?.setToolTip('Weekend — no update needed');

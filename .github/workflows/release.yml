@@ -1,37 +1,135 @@
-name: Build macOS DMG
+name: Release
 
+# Fires when:
+#   • a v* tag is pushed from the CLI  (git push origin v1.0.0)
+#   • a Release is published via the GitHub UI
+#   • manually triggered from the Actions tab (for testing)
 on:
   push:
-    branches:
-      - master
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
 
-# Lets the built-in GITHUB_TOKEN create/update releases
+# NOTE: macOS-only build.
+# The app uses a CoreWLAN native addon (wifi.node) compiled against Apple
+# frameworks. It cannot be cross-compiled for Windows or Linux runners.
+# Wi-Fi SSID detection on Windows and Linux uses netsh / nmcli respectively
+# (no native addon needed) and works at runtime on those platforms — but the
+# packaged build must be produced on the matching OS runner.
+
 permissions:
   contents: write
 
-# Prevents overlapping runs from racing on the same release
 concurrency:
-  group: build-macos-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  # ── macOS DMG ──────────────────────────────────────────────────────────────
+  build-mac:
+    name: macOS DMG
     runs-on: macos-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v5
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
 
-      - name: Set up Node.js (latest LTS)
-        uses: actions/setup-node@v6
+    defaults:
+      run:
+        working-directory: DontAskWhereIAm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
           cache: 'npm'
+          cache-dependency-path: 'DontAskWhereIAm/package-lock.json'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build and publish DMG
+      - name: Rebuild native Wi-Fi addon (CoreWLAN)
+        run: npm run rebuild
+
+      - name: Build
+        run: npm run build
+
+      - name: Package DMG
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --mac dmg --publish always
+
+  # ── Windows NSIS installer ─────────────────────────────────────────────────
+  build-win:
+    name: Windows installer
+    runs-on: windows-latest
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
+
+    defaults:
+      run:
+        working-directory: DontAskWhereIAm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+          cache-dependency-path: 'DontAskWhereIAm/package-lock.json'
+
+      - name: Install dependencies
+        # Skip postinstall (electron-rebuild) — no native addon needed on Windows
+        run: npm ci --ignore-scripts
+
+      - name: Build
+        run: npm run build
+
+      - name: Package installer
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: npx electron-builder --win nsis --publish always
+
+  # ── Linux AppImage ─────────────────────────────────────────────────────────
+  build-linux:
+    name: Linux AppImage
+    runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
+
+    defaults:
+      run:
+        working-directory: DontAskWhereIAm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+          cache-dependency-path: 'DontAskWhereIAm/package-lock.json'
+
+      - name: Install system dependencies for electron-builder
+        run: sudo apt-get install -y rpm
+
+      - name: Install dependencies
+        # Skip postinstall (electron-rebuild) — no native addon needed on Linux
+        run: npm ci --ignore-scripts
+
+      - name: Build
+        run: npm run build
+
+      - name: Package AppImage
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --linux AppImage --publish always

@@ -11,14 +11,23 @@ import { getLogger } from '../logger';
 let _wifiNative: any = null;
 function getWifiNative() {
   if (_wifiNative !== null) return _wifiNative;
-  try {
-    // __dirname = dist/main/services/ — native addon sits at native/wifi/
-    const addonPath = path.join(__dirname, '..', '..', '..', 'native', 'wifi', 'build', 'Release', 'wifi.node');
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    _wifiNative = require(addonPath);
-  } catch {
-    _wifiNative = null;
+
+  // Candidate paths in priority order:
+  // 1. electron-builder extraResources copies it to <resourcesPath>/native/wifi/build/Release/wifi.node
+  // 2. Dev: __dirname = dist/main/services/ → up three levels to project root
+  const candidates = [
+    path.join(process.resourcesPath ?? '', 'native', 'wifi', 'build', 'Release', 'wifi.node'),
+    path.join(__dirname, '..', '..', '..', 'native', 'wifi', 'build', 'Release', 'wifi.node'),
+  ];
+
+  for (const addonPath of candidates) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      _wifiNative = require(addonPath);
+      if (_wifiNative) return _wifiNative;
+    } catch { /* try next */ }
   }
+  _wifiNative = null;
   return _wifiNative;
 }
 
@@ -196,8 +205,12 @@ export function isConnectedToIBMVpn(): boolean {
  * Returns true if the device is currently connected to either IBM Wi-Fi SSID.
  * VPN connection alone does NOT count as "at the office" — only the physical
  * IBM Wi-Fi SSIDs trigger Office status.
+ *
+ * Returns a Promise so callers can uniformly await it (the underlying calls
+ * are synchronous but async wrapping makes the engine interface consistent
+ * across platforms and future async backends).
  */
-export function isConnectedToIBMWifi(config: AppConfig): boolean {
+export async function isConnectedToIBMWifi(config: AppConfig): Promise<boolean> {
   const settings = getSettings();
   const primarySSID = settings.primarySSID || config.ibmWifi.primarySSID;
   const guestSSID = settings.guestSSID || config.ibmWifi.guestSSID;
