@@ -1,28 +1,18 @@
 name: Release
 
-# Fires when:
-#   • a v* tag is pushed from the CLI  (git push origin v1.0.0)
-#   • a Release is published via the GitHub UI
-#   • manually triggered from the Actions tab (for testing)
+# Runs on:
+#   • every push to master  (builds + publishes automatically)
+#   • manual runs from the Actions tab  ("Run workflow" button)
 on:
   push:
-    tags:
-      - 'v*'
-  release:
-    types: [published]
+    branches:
+      - master
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag to build (e.g. v1.0.0)'
-        required: true
-        default: 'v1.0.0'
 
-# NOTE: macOS-only build.
-# The app uses a CoreWLAN native addon (wifi.node) compiled against Apple
-# frameworks. It cannot be cross-compiled for Windows or Linux runners.
-# Wi-Fi SSID detection on Windows and Linux uses netsh / nmcli respectively
-# (no native addon needed) and works at runtime on those platforms — but the
-# packaged build must be produced on the matching OS runner.
+# NOTE: The macOS build uses a CoreWLAN native addon (wifi.node) compiled
+# against Apple frameworks, so it can't be cross-compiled — each platform's
+# package must be produced on its matching OS runner. Wi-Fi detection on
+# Windows/Linux uses netsh / nmcli at runtime (no native addon needed).
 
 permissions:
   contents: write
@@ -36,10 +26,6 @@ jobs:
   build-mac:
     name: macOS DMG
     runs-on: macos-latest
-    
-    defaults:
-      run:
-        working-directory: DontAskWhereIAm
 
     steps:
       - uses: actions/checkout@v6
@@ -48,10 +34,9 @@ jobs:
         with:
           node-version: 'lts/*'
           cache: 'npm'
-          cache-dependency-path: 'DontAskWhereIAm/package-lock.json'
 
       - name: Install dependencies
-        # postinstall.js only sets up the Electron binary — it does NOT build TS
+        # postinstall only sets up the Electron binary — it does NOT build TS
         run: npm ci
 
       - name: Rebuild native Wi-Fi addon (CoreWLAN)
@@ -80,18 +65,14 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # --do-not-rebuild: we already rebuilt native deps above; prevents
-        # electron-builder from running its own rebuild and overwriting wifi.node
+        # --do-not-rebuild: we already built wifi.node above; stops electron-builder
+        # from running its own rebuild and overwriting it
         run: npx electron-builder --mac dmg --publish always --do-not-rebuild
 
   # ── Windows NSIS installer ─────────────────────────────────────────────────
   build-win:
     name: Windows installer
     runs-on: windows-latest
-    
-    defaults:
-      run:
-        working-directory: DontAskWhereIAm
 
     steps:
       - uses: actions/checkout@v6
@@ -100,10 +81,9 @@ jobs:
         with:
           node-version: 'lts/*'
           cache: 'npm'
-          cache-dependency-path: 'DontAskWhereIAm/package-lock.json'
 
       - name: Install dependencies
-        # Skip postinstall (electron-rebuild) — no native addon needed on Windows
+        # --ignore-scripts skips postinstall (electron-rebuild) — no native addon on Windows
         run: npm ci --ignore-scripts
 
       - name: Build
@@ -118,10 +98,6 @@ jobs:
   build-linux:
     name: Linux AppImage
     runs-on: ubuntu-latest
-    
-    defaults:
-      run:
-        working-directory: DontAskWhereIAm
 
     steps:
       - uses: actions/checkout@v6
@@ -130,13 +106,9 @@ jobs:
         with:
           node-version: 'lts/*'
           cache: 'npm'
-          cache-dependency-path: 'DontAskWhereIAm/package-lock.json'
-
-      - name: Install system dependencies for electron-builder
-        run: sudo apt-get install -y rpm
 
       - name: Install dependencies
-        # Skip postinstall (electron-rebuild) — no native addon needed on Linux
+        # --ignore-scripts skips postinstall (electron-rebuild) — no native addon on Linux
         run: npm ci --ignore-scripts
 
       - name: Build
