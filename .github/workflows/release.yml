@@ -33,11 +33,11 @@ jobs:
     steps:
       # ── Checkout ─────────────────────────────────────────────────────────────
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
-      # ── Node (22 LTS — avoids Node 20 deprecation warning) ───────────────────
+      # ── Node (22 LTS) ─────────────────────────────────────────────────────────
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v4.4.0
         with:
           node-version: '22'
           cache: 'npm'
@@ -74,7 +74,7 @@ jobs:
 
       # ── Upload DMG as a workflow artifact ─────────────────────────────────────
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: DontAskWhereIAm-${{ steps.ref.outputs.name }}-mac
           path: DontAskWhereIAm/release/*.dmg
