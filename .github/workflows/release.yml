@@ -25,10 +25,7 @@ jobs:
   # ── macOS DMG ──────────────────────────────────────────────────────────────
   build-mac:
     name: macOS DMG
-    runs-on: macos-latest
-    defaults:
-      run:
-        working-directory: DontAskWhereIAm
+    runs-on: macos-latest 
 
     steps:
       - uses: actions/checkout@v7
@@ -75,10 +72,7 @@ jobs:
   build-win:
     name: Windows installer
     runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: DontAskWhereIAm
-
+    
     steps:
       - uses: actions/checkout@v7
 
@@ -103,10 +97,7 @@ jobs:
   build-linux:
     name: Linux AppImage
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: DontAskWhereIAm
-
+    
     steps:
       - uses: actions/checkout@v7
 
