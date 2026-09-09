@@ -1,18 +1,13 @@
 name: Release
 
-# Runs on:
-#   • every push to master  (builds + publishes automatically)
-#   • manual runs from the Actions tab  ("Run workflow" button)
+# Fires on version tags (v1.0.0, v1.2.3-beta, etc.) and manual dispatch.
+# Pushing to master alone does NOT trigger a release — tag a version first:
+#   git tag v1.0.0 && git push origin v1.0.0
 on:
   push:
-    branches:
-      - master
+    tags:
+      - 'v*'
   workflow_dispatch:
-
-# NOTE: The macOS build uses a CoreWLAN native addon (wifi.node) compiled
-# against Apple frameworks, so it can't be cross-compiled — each platform's
-# package must be produced on its matching OS runner. Wi-Fi detection on
-# Windows/Linux uses netsh / nmcli at runtime (no native addon needed).
 
 permissions:
   contents: write

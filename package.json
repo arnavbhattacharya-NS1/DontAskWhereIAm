@@ -53,6 +53,10 @@
     "appId": "com.dontaskwhereiam.app",
     "productName": "DontAskWhereIAm",
     "copyright": "Copyright © 2025",
+    "publish": {
+      "provider": "github",
+      "releaseType": "release"
+    },
     "directories": {
       "output": "release"
     },
