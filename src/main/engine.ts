@@ -205,18 +205,18 @@ export class StatusEngine {
     dayName: DayOfWeek
   ): Promise<{ boardId: string; itemId: string; columnId: string; currentStatus: MondayStatus } | null> {
     const settings = getSettings();
+    const todayDate = new Date(today);
 
-    // Resolve board
-    const boardResult = await resolveBoardForDate(new Date(today), this.config);
+    // Resolve board for today's month — if not found, surface the error immediately
+    const boardResult = await resolveBoardForDate(todayDate, this.config);
     if (!boardResult) {
       const { fetchAllBoards } = await import('./services/mondayService');
       const boards = await fetchAllBoards(this.config);
       const prefix = settings.boardNamePrefix;
-      const d = new Date(today);
-      const monthShort = d.toLocaleString('en-US', { month: 'short' });
-      const monthSept  = d.getMonth() === 8 ? 'Sept' : monthShort;
-      const monthLong  = d.toLocaleString('en-US', { month: 'long' });
-      const year = d.getFullYear();
+      const monthShort = todayDate.toLocaleString('en-US', { month: 'short' });
+      const monthSept  = todayDate.getMonth() === 8 ? 'Sept' : monthShort;
+      const monthLong  = todayDate.toLocaleString('en-US', { month: 'long' });
+      const year = todayDate.getFullYear();
       const variants = [...new Set([monthShort, monthSept, monthLong])];
       this.onEvent({
         type: 'board-not-found',
@@ -227,22 +227,45 @@ export class StatusEngine {
     }
 
     const items = await fetchBoardItems(boardResult.boardId, this.config);
-    const item = resolveItemForDate(items, settings.employeeName, today);
+    let item = resolveItemForDate(items, settings.employeeName, today);
 
+    // ── Cross-month week fallback ───────────────────────────────────────────
+    // Attendance weeks span Mon–Sun (or Mon–Fri) and may straddle two months.
+    // e.g. the Sep board's last row has Week Start=Sep 28, Week End=Oct 2 —
+    // so Oct 1 is covered by the September board, not October's.
+    // If today isn't found in the current month's board, try the previous
+    // month's board before declaring an error.
     if (!item) {
-      // Check if the board has items at all but the employee isn't found
+      const prevMonthDate = new Date(todayDate);
+      prevMonthDate.setDate(1);          // avoid day-overflow (e.g. Mar 31 → Mar 1)
+      prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
+
+      const prevBoardResult = await resolveBoardForDate(prevMonthDate, this.config);
+      if (prevBoardResult) {
+        const prevItems = await fetchBoardItems(prevBoardResult.boardId, this.config);
+        const prevItem  = resolveItemForDate(prevItems, settings.employeeName, today);
+        if (prevItem) {
+          getLogger().info(
+            `Date ${today} not found in current month's board — ` +
+            `resolved via previous month's board (id: ${prevBoardResult.boardId})`
+          );
+          const currentStatus = readDayStatus(prevItem, dayName);
+          const columnId = resolveColumnId(prevItem, dayName);
+          return { boardId: prevBoardResult.boardId, itemId: prevItem.id, columnId, currentStatus };
+        }
+      }
+
+      // Neither board covers today — determine whether it's a missing week or missing row
       const rowItems = items.filter((i) => {
         if (!i.weekStart || !i.weekEnd) return false;
         return today >= i.weekStart && today <= i.weekEnd;
       });
 
       if (rowItems.length === 0) {
-        // Week tab not covered — board is incomplete
         this.onEvent({ type: 'week-not-found', boardId: boardResult.boardId });
         return null;
       }
 
-      // Week exists but employee row not found
       this.onEvent({
         type: 'row-not-found',
         boardId: boardResult.boardId,
